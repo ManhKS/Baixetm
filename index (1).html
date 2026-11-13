@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f3b47">
+<title>Quản lý bãi giữ xe 3 ô</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Bảng điều khiển ca trực: nền giấy xám xanh, mực xanh đậm, 2 trạng thái ô (trống / có xe) */
+  --bg: #eef2f1; --surface: #ffffff; --ink: #11262c; --muted: #5d7177; --line: #d4dddc;
+  --accent: #0f5f73; --accent-ink: #ffffff;
+  --free: #1b8a5a; --free-bg: #e4f4ec; --busy: #b8571a; --busy-bg: #fbeee3; --danger: #b3261e; --danger-bg: #fbe9e7;
+  --display: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d171a; --surface: #152328; --ink: #e2eced; --muted: #93a8ad; --line: #26383e;
+    --accent: #4fb3c9; --accent-ink: #06232b;
+    --free: #4cc98c; --free-bg: #133226; --busy: #f0a060; --busy-bg: #3a2717; --danger: #f2827a; --danger-bg: #3b1c1a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d171a; --surface: #152328; --ink: #e2eced; --muted: #93a8ad; --line: #26383e;
+  --accent: #4fb3c9; --accent-ink: #06232b;
+  --free: #4cc98c; --free-bg: #133226; --busy: #f0a060; --busy-bg: #3a2717; --danger: #f2827a; --danger-bg: #3b1c1a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--display); font-size: 15px; line-height: 1.5; }
+button, input, select { font: inherit; color: inherit; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 16px 16px 48px; display: grid; gap: 16px; }
+header.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+header.top h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; border: 1px solid var(--line); background: var(--surface); }
+.chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.chip.ok i { background: var(--free); } .chip.bad i { background: var(--danger); } .chip.warn i { background: var(--busy); }
+.banner { padding: 10px 14px; border-radius: 10px; background: var(--busy-bg); color: var(--ink); font-size: 14px; border: 1px solid var(--line); }
+.banner.err { background: var(--danger-bg); }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.tile .k { font-size: 12.5px; color: var(--muted); }
+.tile .v { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.tile .v small { font-size: 14px; font-weight: 500; color: var(--muted); }
+section.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+section.card h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+section.card h2 span { font-size: 12.5px; font-weight: 400; color: var(--muted); }
+.slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.slot { border-radius: 12px; padding: 12px; border: 1px solid var(--line); border-top: 5px solid var(--free); background: var(--free-bg); display: grid; gap: 4px; min-height: 150px; }
+.slot.busy { border-top-color: var(--busy); background: var(--busy-bg); }
+.slot.hold { border-top-color: var(--accent); }
+.slot.hold .pill { color: var(--accent); }
+.slot.la { border-top-color: var(--danger); background: var(--danger-bg); }
+.slot.la .pill { color: var(--danger); }
+.fire { padding: 14px 16px; border-radius: 12px; background: var(--danger); color: #fff; font-weight: 700; font-size: 17px; }
+.slot .name { font-size: 20px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+.pill { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface); }
+.slot .pill { color: var(--free); } .slot.busy .pill { color: var(--busy); }
+.slot .row { display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px; }
+.slot .row b { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.slot .money { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.slot .empty { color: var(--muted); font-size: 13.5px; margin-top: auto; }
+.mono { font-family: var(--mono); font-size: 13px; }
+td.mono { white-space: nowrap; }
+td .small-btn { white-space: nowrap; }
+.ctrl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 12px; font-weight: 600; cursor: pointer; text-align: left; display: grid; gap: 2px; }
+.btn small { font-weight: 400; color: var(--muted); font-size: 12.5px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary small { color: inherit; opacity: .85; }
+.btn:hover { border-color: var(--accent); }
+.btn:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn[disabled] { opacity: .55; cursor: wait; }
+.form-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-top: 12px; }
+.field { display: grid; gap: 4px; flex: 1 1 180px; }
+.field label { font-size: 12.5px; color: var(--muted); }
+.field input, .field select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); width: 100%; }
+.small-btn { padding: 10px 14px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600; cursor: pointer; }
+.small-btn.ghost { background: transparent; color: var(--accent); }
+.cmd-state { margin-top: 10px; font-size: 13.5px; color: var(--muted); min-height: 1.5em; }
+.two { display: grid; grid-template-columns: 1fr 1.6fr; gap: 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 500; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; }
+.st { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.st0 { background: var(--free-bg); color: var(--free); } .st1 { background: var(--busy-bg); color: var(--busy); }
+.st2 { background: var(--busy-bg); color: var(--busy); } .st3 { background: var(--bg); color: var(--muted); } .st4 { background: var(--danger-bg); color: var(--danger); }
+details.settings summary { cursor: pointer; font-weight: 600; }
+.hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.toast { position: sticky; bottom: 12px; justify-self: center; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.dialog-back { display: none; min-height: 100%; position: fixed; inset: 0; background: rgba(5, 15, 18, .55); align-items: center; justify-content: center; padding: 16px; z-index: 5; }
+.dialog-back.open { display: flex; }
+.dialog { background: var(--surface); border-radius: 14px; padding: 18px; max-width: 380px; width: 100%; border: 1px solid var(--line); }
+.dialog h3 { margin: 0 0 6px; font-size: 17px; }
+.dialog p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+.dialog .acts { display: flex; gap: 8px; justify-content: flex-end; }
+@media (max-width: 760px) {
+  .tiles { grid-template-columns: repeat(2, 1fr); }
+  .slots { grid-template-columns: 1fr; }
+  .slot { min-height: 0; }
+  .ctrl { grid-template-columns: 1fr; }
+  .two { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Bãi giữ xe 3 ô</h1>
+    <div class="chips">
+      <span class="chip" id="chipDb"><i></i><span>Đang khởi động…</span></span>
+      <span class="chip" id="chipEsp"><i></i><span>ESP32: chưa rõ</span></span>
+    </div>
+  </header>
+
+  <div class="fire" id="fire" hidden role="alert">CẢNH BÁO CHÁY: cảm biến lửa đang phát hiện lửa. Hai barie đã mở để xe rời bãi.</div>
+  <div class="banner" id="banner" hidden></div>
+
+  <div class="tiles">
+    <div class="tile"><div class="k">Xe trong bãi</div><div class="v" id="tXe">–</div></div>
+    <div class="tile"><div class="k">Ô còn trống</div><div class="v" id="tTrong">–</div></div>
+    <div class="tile"><div class="k">Thẻ sẵn sàng</div><div class="v" id="tThe">–</div></div>
+    <div class="tile"><div class="k">Doanh thu hôm nay</div><div class="v" id="tDoanhThu">–</div></div>
+  </div>
+
+  <section class="card">
+    <h2>Các ô đỗ <span id="giaInfo"></span></h2>
+    <div class="slots" id="slots"></div>
+  </section>
+
+  <section class="card">
+    <h2>Điều khiển từ xa <span>ESP32 đọc lệnh mỗi 2 giây</span></h2>
+    <div class="ctrl">
+      <button class="btn primary" data-cmd="moVao"><span>Mở barie vào</span><small>Mở 90°, tự hạ khi xe qua</small></button>
+      <button class="btn primary" data-cmd="moRa"><span>Mở barie ra</span><small>Mở 90°, tự hạ khi xe qua</small></button>
+      <button class="btn" data-cmd="napThe"><span>Đặt lại thẻ</span><small>Thẻ không có xe trong bãi về "Sẵn sàng"</small></button>
+    </div>
+    <div class="form-row">
+      <div class="field"><label for="inGia">Giá mỗi giờ (đồng)</label><input id="inGia" type="number" min="1000" step="1000" inputmode="numeric" placeholder="5000"></div>
+      <button class="small-btn" id="btnGia">Đổi giá</button>
+    </div>
+    <div class="cmd-state" id="cmdState" aria-live="polite"></div>
+  </section>
+
+  <div class="two">
+    <section class="card">
+      <h2>Thẻ <span id="theInfo"></span></h2>
+      <div class="scroll"><table>
+        <thead><tr><th>UID</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody id="theBody"></tbody>
+      </table></div>
+    </section>
+    <section class="card">
+      <h2>Lịch sử xe ra <span id="lsInfo"></span></h2>
+      <div class="scroll"><table>
+        <thead><tr><th>Giờ ra</th><th>Ô</th><th>Thẻ</th><th class="num">Thời gian đỗ</th><th class="num">Tiền</th></tr></thead>
+        <tbody id="lsBody"></tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Sự kiện, cảnh báo <span id="skInfo"></span></h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Lúc</th><th>Loại</th><th>Nội dung</th></tr></thead>
+      <tbody id="skBody"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card">
+    <details class="settings" id="settings">
+      <summary>Kết nối Firebase</summary>
+      <p class="hint">Lấy 2 giá trị này trong Firebase Console → Project settings → Your apps → SDK setup and configuration. Thông tin chỉ lưu trên trình duyệt của máy này.</p>
+      <div class="form-row">
+        <div class="field"><label for="inUrl">databaseURL</label><input id="inUrl" type="url" placeholder="https://ten-du-an-default-rtdb.asia-southeast1.firebasedatabase.app"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label for="inKey">apiKey</label><input id="inKey" type="text" placeholder="AIza..."></div>
+      </div>
+      <div class="form-row">
+        <button class="small-btn" id="btnSave">Lưu và kết nối</button>
+        <button class="small-btn ghost" id="btnDemo">Dùng chế độ mô phỏng</button>
+      </div>
+      <p class="hint" id="cfgMsg"></p>
+    </details>
+  </section>
+
+  <div class="toast" id="toast" role="status"></div>
+</div>
+
+<div class="dialog-back" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+  <div class="dialog">
+    <h3 id="dlgTitle"></h3>
+    <p id="dlgText"></p>
+    <div class="acts">
+      <button class="small-btn ghost" id="dlgNo">Hủy</button>
+      <button class="small-btn" id="dlgYes">Đồng ý</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+// ======================================================================
+//  CẤU TRÚC DỮ LIỆU TRÊN FIREBASE (ESP32 phải ghi đúng như sau)
+//  /baixe/trangthai
+//      o/A1, o/A2, o/A3 : { coXe: true|false, uid: "F33EF033", gioVao: <giây Unix> }
+//      theTrongMay : số thẻ còn trong máy cấp        tongThe : 4
+//      giaGio      : giá mỗi giờ (đồng)               cheDoDemo : true = 1 phút tính 1 giờ
+//      the         : { "F33EF033": 0..4, ... }        (0 trong máy, 1 chờ rút, 2 lưu hành, 3 hộp thu, 4 mất)
+//      capNhat     : <giây Unix> lần ESP32 gửi gần nhất (ESP32 gửi ít nhất mỗi 10 giây)
+//  /baixe/lichsu/<id> : { uid, o: "A1", gioVao, gioRa, soGio, tien }
+//  /baixe/sukien/<id> : { loai, noiDung, thoiGian }      trangthai cũng có: chay, quetTay, o/Ax/xeLa, o/Ax/giuCho
+//  /baixe/lenh        : moVao: true | moRa: true | napThe: true | giaGio: 6000 | matThe: "UID"
+//                       (app ghi lệnh; ESP32 làm xong thì XÓA lệnh đó)
+// ======================================================================
+const FB_VER = "10.12.2";
+const O_LIST = ["A1", "A2", "A3"];
+const TEN_TT = ["Sẵn sàng", "Chờ rút", "Đang lưu hành", "Trong hộp thu", "Báo mất"];
+const TEN_SK = { chay: "Cháy", hetChay: "Hết cháy", xeLa: "Xe lạ", saiO: "Đỗ sai ô", khongVao: "Xe không vào", khongRa: "Xe không ra", hetGiuCho: "Hết giữ chỗ", theMat: "Thẻ báo mất", hetThe: "Hết thẻ", xeVanTrongO: "Xe vẫn trong ô" };
+const TEN_LENH = { moVao: "Mở barie vào", moRa: "Mở barie ra", napThe: "Đặt lại thẻ", giaGio: "Đổi giá", matThe: "Báo mất thẻ" };
+
+const S = { tt: null, ls: [], sk: [], lenh: {}, dbOk: false, mode: "demo", backend: null, cho: {} };
+const $ = (id) => document.getElementById(id);
+const nowS = () => Date.now() / 1000;
+
+// ---------- Tiện ích ----------
+const tien = (n) => (Math.round(n) || 0).toLocaleString("vi-VN") + " đ";
+const uidDep = (u) => (u || "").replace(/\s+/g, "").toUpperCase().replace(/(..)(?=.)/g, "$1 ");
+function thoiLuong(giay) {
+  giay = Math.max(0, Math.floor(giay));
+  const h = Math.floor(giay / 3600), m = Math.floor((giay % 3600) / 60), s = giay % 60;
+  if (h > 0) return `${h} giờ ${m} phút`;
+  if (m > 0) return `${m} phút ${s} giây`;
+  return `${s} giây`;
+}
+function gio(t) {
+  const d = new Date(t * 1000);
+  return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+}
+function ngayGio(t) {
+  const d = new Date(t * 1000), h = new Date();
+  const cungNgay = d.toDateString() === h.toDateString();
+  return cungNgay ? gio(t) : d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) + " " + gio(t);
+}
+// Cách tính tiền giống chương trình ESP32: làm tròn lên theo giờ, tối thiểu 1 giờ
+function tinhTien(giay, gia, demo) {
+  const donVi = demo ? 60 : 3600;           // chế độ demo: 1 phút = 1 giờ
+  const soGio = Math.max(1, Math.ceil(giay / donVi));
+  return { soGio, tien: soGio * gia };
+}
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._h); toast._h = setTimeout(() => t.classList.remove("show"), 2600);
+}
+function hoi(tieuDe, noiDung) {
+  return new Promise((ok) => {
+    $("dlgTitle").textContent = tieuDe; $("dlgText").textContent = noiDung;
+    const back = $("dlg"); back.classList.add("open"); $("dlgYes").focus();
+    const xong = (v) => { back.classList.remove("open"); $("dlgYes").onclick = $("dlgNo").onclick = null; ok(v); };
+    $("dlgYes").onclick = () => xong(true); $("dlgNo").onclick = () => xong(false);
+  });
+}
+function docCfg() { try { return JSON.parse(localStorage.getItem("baixe_cfg") || "null"); } catch { return null; } }
+function luuCfg(c) { try { localStorage.setItem("baixe_cfg", JSON.stringify(c)); return true; } catch { return false; } }
+
+// ---------- Vẽ giao diện ----------
+function veTatCa() {
+  const tt = S.tt;
+  // chip kết nối
+  const cDb = $("chipDb");
+  if (S.mode === "demo") { cDb.className = "chip warn"; cDb.lastElementChild.textContent = "Mô phỏng"; }
+  else { cDb.className = "chip " + (S.dbOk ? "ok" : "bad"); cDb.lastElementChild.textContent = S.dbOk ? "Firebase đã kết nối" : "Mất kết nối Firebase"; }
+  const cE = $("chipEsp");
+  if (!tt || !tt.capNhat) { cE.className = "chip"; cE.lastElementChild.textContent = "ESP32: chưa có dữ liệu"; }
+  else {
+    const tre = nowS() - tt.capNhat;
+    if (tre < 30) { cE.className = "chip ok"; cE.lastElementChild.textContent = `ESP32 trực tuyến · ${Math.max(0, Math.round(tre))} giây trước`; }
+    else { cE.className = "chip bad"; cE.lastElementChild.textContent = `ESP32 mất kết nối · lần cuối ${ngayGio(tt.capNhat)}`; }
+  }
+  if (!tt) { $("slots").innerHTML = '<p class="hint">Chưa có dữ liệu từ ESP32 trong /baixe/trangthai.</p>'; veLichSu(); return; }
+
+  const gia = tt.giaGio || 5000, demo = !!tt.cheDoDemo;
+  $("giaInfo").textContent = `${tien(gia)} / giờ${demo ? " · chế độ demo: 1 phút = 1 giờ" : ""}`;
+  if (document.activeElement !== $("inGia")) $("inGia").placeholder = String(gia);
+
+  // ô đỗ
+  let soXe = 0;
+  $("slots").innerHTML = O_LIST.map((ten) => {
+    const o = (tt.o && tt.o[ten]) || {};
+    if (!o.coXe && o.giuCho) return `<div class="slot hold"><div class="name">Ô ${ten}<span class="pill">Đang giữ chỗ</span></div><div class="empty">Đã phát thẻ, chờ xe vào ô</div></div>`;
+    if (!o.coXe) return `<div class="slot"><div class="name">Ô ${ten}<span class="pill">Trống</span></div><div class="empty">Sẵn sàng nhận xe</div></div>`;
+    if (o.xeLa) { soXe++; return `<div class="slot la"><div class="name">Ô ${ten}<span class="pill">Xe lạ</span></div><div class="row"><span>Phát hiện lúc</span><b>${o.gioVao > 1600000000 ? ngayGio(o.gioVao) : "–"}</b></div><div class="empty">Xe không quét thẻ ở cổng vào</div></div>`; }
+    soXe++;
+    const coGio = o.gioVao && o.gioVao > 1600000000;
+    const daDo = coGio ? nowS() - o.gioVao : 0;
+    const t = tinhTien(daDo, gia, demo);
+    return `<div class="slot busy"><div class="name">Ô ${ten}<span class="pill">Có xe</span></div>
+      <div class="row"><span>Thẻ</span><b class="mono">${uidDep(o.uid) || "–"}</b></div>
+      <div class="row"><span>Giờ vào</span><b>${coGio ? ngayGio(o.gioVao) : "chưa có giờ"}</b></div>
+      <div class="row"><span>Đã đỗ</span><b>${coGio ? thoiLuong(daDo) : "–"}</b></div>
+      <div class="row"><span>Tạm tính (${t.soGio} giờ)</span><b></b></div>
+      <div class="money">${coGio ? tien(t.tien) : "–"}</div></div>`;
+  }).join("");
+
+  $("tXe").innerHTML = `${soXe}<small> / 3</small>`;
+  $("tTrong").textContent = String(O_LIST.filter((t) => { const o = tt.o && tt.o[t]; return !(o && (o.coXe || o.giuCho)); }).length);
+  $("fire").hidden = !tt.chay;
+  $("tThe").innerHTML = `${tt.theTrongMay ?? "–"}<small> / ${tt.tongThe ?? 4}</small>`;
+
+  // thẻ
+  const the = tt.the || {};
+  const trongO = {};
+  O_LIST.forEach((ten) => { const o = tt.o && tt.o[ten]; if (o && o.coXe && o.uid) trongO[o.uid.replace(/\s+/g, "").toUpperCase()] = ten; });
+  const uids = Object.keys(the);
+  $("theInfo").textContent = uids.length ? `${uids.length} thẻ đã học` : "";
+  $("theBody").innerHTML = uids.length ? uids.map((u) => {
+    const s = Number(the[u]) || 0;
+    const ghiChu = trongO[u.toUpperCase()] ? ` · ô ${trongO[u.toUpperCase()]}` : "";
+    const nut = s === 4 ? "" : `<button class="small-btn ghost" data-mat="${u}" style="padding:4px 10px;font-size:12.5px">Báo mất</button>`;
+    return `<tr><td class="mono">${uidDep(u)}</td><td><span class="st st${s}">${TEN_TT[s] || s}</span>${ghiChu}</td><td class="num">${nut}</td></tr>`;
+  }).join("") : '<tr><td colspan="3" class="hint">Chưa có thẻ nào. ESP32 tự học UID của 4 thẻ đầu tiên.</td></tr>';
+
+  veLichSu();
+  veSuKien();
+  veLenh();
+}
+
+function veLichSu() {
+  const dauNgay = new Date(); dauNgay.setHours(0, 0, 0, 0);
+  const moc = dauNgay.getTime() / 1000;
+  let tong = 0, soLuot = 0;
+  S.ls.forEach((x) => { if (x.gioRa >= moc) { tong += Number(x.tien) || 0; soLuot++; } });
+  $("tDoanhThu").textContent = tien(tong);
+  $("lsInfo").textContent = `hôm nay ${soLuot} lượt`;
+  const ds = S.ls.slice().sort((a, b) => b.gioRa - a.gioRa).slice(0, 30);
+  $("lsBody").innerHTML = ds.length ? ds.map((x) =>
+    `<tr><td>${ngayGio(x.gioRa)}</td><td>${x.o || "–"}</td><td class="mono">${uidDep(x.uid)}</td>
+     <td class="num">${thoiLuong((x.gioRa || 0) - (x.gioVao || 0))}<br><small style="color:var(--muted)">tính ${x.soGio ?? "–"} giờ</small></td>
+     <td class="num">${tien(x.tien)}</td></tr>`).join("")
+    : '<tr><td colspan="5" class="hint">Chưa có lượt xe ra nào.</td></tr>';
+}
+
+function veSuKien() {
+  const ds = S.sk.slice().sort((a, b) => b.thoiGian - a.thoiGian).slice(0, 15);
+  $("skInfo").textContent = ds.length ? `${ds.length} mới nhất` : "";
+  $("skBody").innerHTML = ds.length ? ds.map((x) =>
+    `<tr><td>${ngayGio(x.thoiGian || 0)}</td><td><span class="st ${x.loai === "chay" || x.loai === "theMat" || x.loai === "xeLa" ? "st4" : "st1"}">${TEN_SK[x.loai] || x.loai}</span></td><td>${(x.noiDung || "").replace(/</g, "&lt;")}</td></tr>`).join("")
+    : '<tr><td colspan="3" class="hint">Chưa có sự kiện nào.</td></tr>';
+}
+
+function veLenh() {
+  const dangCho = Object.keys(S.lenh || {});
+  document.querySelectorAll("[data-cmd]").forEach((b) => { b.disabled = dangCho.includes(b.dataset.cmd); });
+  $("btnGia").disabled = dangCho.includes("giaGio");
+  if (!dangCho.length) { $("cmdState").textContent = ""; return; }
+  const lau = dangCho.some((k) => S.cho[k] && Date.now() - S.cho[k] > 10000);
+  $("cmdState").textContent = (lau ? "ESP32 chưa phản hồi sau 10 giây: " : "Đang chờ ESP32 thực hiện: ")
+    + dangCho.map((k) => TEN_LENH[k] || k).join(", ");
+}
+
+// ---------- Gửi lệnh ----------
+async function guiLenh(k, v, tieuDe, noiDung) {
+  if (!S.backend) return;
+  if (tieuDe && !(await hoi(tieuDe, noiDung))) return;
+  try {
+    S.cho[k] = Date.now();
+    await S.backend.lenh(k, v);
+    toast(`Đã gửi lệnh: ${TEN_LENH[k]}`);
+  } catch (e) { toast("Gửi lệnh thất bại: " + (e && e.message ? e.message : e)); }
+}
+document.querySelectorAll("[data-cmd]").forEach((b) => b.addEventListener("click", () => {
+  const k = b.dataset.cmd;
+  if (k === "moVao") guiLenh(k, true, "Mở barie vào?", "Barie vào sẽ mở 90° và tự hạ khi cảm biến không còn thấy xe trong 2 giây.");
+  if (k === "moRa") guiLenh(k, true, "Mở barie ra?", "Dùng khi cần cho xe ra mà không qua khe trả thẻ. Lượt này sẽ không được tính tiền.");
+  if (k === "napThe") guiLenh(k, true, "Đặt lại thẻ?", "Mọi thẻ không gắn với xe đang trong bãi (kể cả thẻ báo mất) sẽ về trạng thái Sẵn sàng.");
+}));
+$("btnGia").addEventListener("click", () => {
+  const v = parseInt($("inGia").value, 10);
+  if (!(v >= 1000)) { toast("Nhập giá từ 1.000 đ trở lên"); $("inGia").focus(); return; }
+  guiLenh("giaGio", v, "Đổi giá?", `Giá mới ${tien(v)} mỗi giờ, áp dụng cho các lượt tính tiền từ bây giờ.`).then(() => { $("inGia").value = ""; });
+});
+$("theBody").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-mat]"); if (!b) return;
+  const u = b.dataset.mat;
+  guiLenh("matThe", u, "Báo mất thẻ?", `Thẻ ${uidDep(u)} sẽ bị khóa: đút thẻ này vào khe sẽ không mở barie.`);
+});
+
+// ---------- Nguồn dữ liệu 1: MÔ PHỎNG (chưa nối Firebase) ----------
+function taoMoPhong() {
+  const t = nowS();
+  const homNay = new Date(); homNay.setHours(0, 0, 0, 0); const h0 = homNay.getTime() / 1000;
+  S.tt = {
+    o: { A1: { coXe: true, uid: "F33EF033", gioVao: t - 47 * 60 }, A2: { coXe: false, uid: "", gioVao: 0 }, A3: { coXe: true, uid: "3179AE6E", gioVao: t - 125 * 60 } },
+    theTrongMay: 2, tongThe: 4, giaGio: 5000, cheDoDemo: false, capNhat: t, chay: false,
+    the: { F33EF033: 2, "63551E38": 0, "3179AE6E": 2, "11EC7164": 0 }
+  };
+  const mk = (gv, gr, o, uid) => { const r = tinhTien(gr - gv, 5000, false); return { uid, o, gioVao: gv, gioRa: gr, soGio: r.soGio, tien: r.tien }; };
+  S.ls = [
+    mk(h0 - 6 * 3600, h0 - 4.2 * 3600, "A2", "11EC7164"),
+    mk(Math.max(h0 + 60, t - 5 * 3600), Math.max(h0 + 600, t - 3.4 * 3600), "A1", "63551E38"),
+    mk(Math.max(h0 + 120, t - 3 * 3600), Math.max(h0 + 900, t - 2.6 * 3600), "A2", "11EC7164"),
+    mk(Math.max(h0 + 180, t - 2.2 * 3600), Math.max(h0 + 1200, t - 0.5 * 3600), "A2", "63551E38"),
+  ];
+  S.sk = [
+    { loai: "saiO", noiDung: "The 11EC7164 giu cho A1 nhung do vao A2", thoiGian: Math.max(h0 + 60, t - 5.2 * 3600) },
+    { loai: "khongVao", noiDung: "Mo barie vao 30 s khong thay xe", thoiGian: Math.max(h0 + 120, t - 1.5 * 3600) },
+  ];
+  S.lenh = {}; S.mode = "demo";
+  const hb = setInterval(() => { if (S.mode !== "demo") return clearInterval(hb); S.tt.capNhat = nowS(); }, 4000);
+  return {
+    async lenh(k, v) {
+      S.lenh = { ...S.lenh, [k]: v }; veTatCa();
+      setTimeout(() => {                       // giả lập ESP32 làm lệnh rồi xóa lệnh
+        const tt = S.tt;
+        if (k === "giaGio") tt.giaGio = v;
+        if (k === "napThe") { const dangDo = Object.values(tt.o).filter((o) => o.coXe).map((o) => o.uid); Object.keys(tt.the).forEach((u) => { if (!dangDo.includes(u)) tt.the[u] = 0; }); tt.theTrongMay = Object.values(tt.the).filter((s) => s === 0).length; }
+        if (k === "matThe") { tt.the[v] = 4; tt.theTrongMay = Object.values(tt.the).filter((s) => s === 0).length; }
+        delete S.lenh[k]; delete S.cho[k]; tt.capNhat = nowS(); veTatCa();
+        toast(`ESP32 (mô phỏng) đã thực hiện: ${TEN_LENH[k]}`);
+      }, 1500);
+    }
+  };
+}
+
+// ---------- Nguồn dữ liệu 2: FIREBASE ----------
+async function taoFirebase(cfg) {
+  const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
+  const appM = await import(base + "firebase-app.js");
+  const dbM = await import(base + "firebase-database.js");
+  const app = appM.initializeApp({ apiKey: cfg.apiKey || undefined, databaseURL: cfg.databaseURL }, "baixe-" + Date.now());
+  if (cfg.apiKey) {
+    try { const au = await import(base + "firebase-auth.js"); await au.signInAnonymously(au.getAuth(app)); }
+    catch (e) { hienBanner("Không đăng nhập ẩn danh được (" + (e.code || e.message) + "). Kiểm tra đã bật Anonymous trong Authentication chưa.", true); }
+  }
+  const db = dbM.getDatabase(app);
+  const loi = (e) => hienBanner("Firebase từ chối đọc dữ liệu: " + (e.code || e.message) + ". Kiểm tra luật (Rules) của Realtime Database.", true);
+  dbM.onValue(dbM.ref(db, ".info/connected"), (s) => { S.dbOk = !!s.val(); veTatCa(); });
+  dbM.onValue(dbM.ref(db, "baixe/trangthai"), (s) => { S.tt = s.val(); veTatCa(); }, loi);
+  dbM.onValue(dbM.query(dbM.ref(db, "baixe/lichsu"), dbM.orderByChild("gioRa"), dbM.limitToLast(300)), (s) => {
+    const arr = []; s.forEach((c) => { arr.push(c.val()); }); S.ls = arr; veTatCa();
+  }, loi);
+  dbM.onValue(dbM.query(dbM.ref(db, "baixe/sukien"), dbM.orderByChild("thoiGian"), dbM.limitToLast(30)), (s) => {
+    const arr = []; s.forEach((c) => { arr.push(c.val()); }); S.sk = arr; veTatCa();
+  }, loi);
+  dbM.onValue(dbM.ref(db, "baixe/lenh"), (s) => {
+    S.lenh = s.val() || {};
+    Object.keys(S.cho).forEach((k) => { if (!(k in S.lenh)) { if (S.cho[k]) toast(`ESP32 đã thực hiện: ${TEN_LENH[k]}`); delete S.cho[k]; } });
+    veTatCa();
+  }, loi);
+  S.mode = "firebase";
+  return { async lenh(k, v) { await dbM.set(dbM.ref(db, "baixe/lenh/" + k), v); } };
+}
+
+function hienBanner(msg, err) { const b = $("banner"); b.hidden = !msg; b.textContent = msg || ""; b.className = "banner" + (err ? " err" : ""); }
+
+async function khoiDong() {
+  const cfg = docCfg();
+  if (cfg && cfg.databaseURL) {
+    $("inUrl").value = cfg.databaseURL; $("inKey").value = cfg.apiKey || "";
+    try { hienBanner(""); S.backend = await taoFirebase(cfg); veTatCa(); return; }
+    catch (e) { hienBanner("Không kết nối được Firebase (" + (e.message || e) + "). Đang chạy mô phỏng.", true); }
+  } else {
+    hienBanner("Đang chạy chế độ mô phỏng với dữ liệu mẫu. Mở mục \"Kết nối Firebase\" ở cuối trang để nối với bãi xe thật.");
+    $("settings").open = false;
+  }
+  S.backend = taoMoPhong(); veTatCa();
+}
+$("btnSave").addEventListener("click", () => {
+  const url = $("inUrl").value.trim(), key = $("inKey").value.trim();
+  if (!/^https:\/\/.+(firebaseio\.com|firebasedatabase\.app)\/?$/.test(url)) { $("cfgMsg").textContent = "databaseURL phải có dạng https://...firebaseio.com hoặc https://...firebasedatabase.app"; $("inUrl").focus(); return; }
+  if (!luuCfg({ databaseURL: url.replace(/\/$/, ""), apiKey: key })) { $("cfgMsg").textContent = "Trình duyệt không cho lưu cài đặt."; return; }
+  location.reload();
+});
+$("btnDemo").addEventListener("click", () => { try { localStorage.removeItem("baixe_cfg"); } catch {} location.reload(); });
+
+setInterval(() => { if (S.tt) veTatCa(); }, 1000);   // cập nhật đồng hồ đỗ xe mỗi giây
+khoiDong();
+</script>
+</body>
+</html>
